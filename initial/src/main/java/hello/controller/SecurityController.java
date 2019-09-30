@@ -1,9 +1,9 @@
-package hello.security.controller;
+package hello.controller;
 
-import hello.security.BasicAuthMgt;
-import hello.security.enums.AuthenticationModeEnum;
+import hello.mgt.BasicAuthMgt;
+import hello.enums.AuthenticationModeEnum;
 import hello.security.model.Login;
-import hello.security.JwtAuthMgt;
+import hello.mgt.JwtAuthMgt;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

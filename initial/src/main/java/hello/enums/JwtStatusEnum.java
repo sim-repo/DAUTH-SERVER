@@ -1,4 +1,4 @@
-package hello.security.enums;
+package hello.enums;
 
 public enum JwtStatusEnum {
     NotAuthenticated("NotAuthenticated"),

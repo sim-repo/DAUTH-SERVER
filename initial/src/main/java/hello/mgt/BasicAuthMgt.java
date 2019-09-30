@@ -1,7 +1,7 @@
-package hello.security;
+package hello.mgt;
 
 import hello.security.model.Login;
-import hello.security.pubsub.JwtPubSub;
+import hello.pubsub.JwtPubSub;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

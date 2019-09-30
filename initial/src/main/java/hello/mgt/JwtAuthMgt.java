@@ -1,6 +1,5 @@
-package hello.security;
+package hello.mgt;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.spec.InvalidKeySpecException;
@@ -10,15 +9,11 @@ import javax.crypto.spec.PBEKeySpec;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 
-import antlr.debug.NewLineEvent;
-import com.google.common.collect.Sets;
-import hello.config.AppConfig;
-import hello.model.getter.IGetter;
-import hello.security.enums.AuthenticationModeEnum;
-import hello.security.enums.JwtStatusEnum;
+import hello.enums.AuthenticationModeEnum;
+import hello.enums.JwtStatusEnum;
 import hello.security.model.Login;
 import hello.security.model.ProtoLogin;
-import hello.security.pubsub.JwtPubSub;
+import hello.pubsub.JwtPubSub;
 import io.jsonwebtoken.*;
 import org.joda.time.DateTime;
 import org.springframework.http.HttpHeaders;
@@ -206,55 +201,6 @@ public class JwtAuthMgt {
         return null;
     }
 
-
-    // #########################
-    // Authorization Functions:
-    // #########################
-    public static JwtStatusEnum checkAuthorization(HttpServletRequest request) {
-        if (!enabledAuthorization || AuthenticationModeEnum.NONE.equals(AUTH_MODE)) return JwtStatusEnum.Authorized;
-        String endpoint = request.getParameter("endpointId");
-        String method = request.getParameter("method");
-        String token = request.getHeader(HEADER_STRING);
-
-        Login login = null;
-        if (JwtAuthMgt.AUTH_MODE.equals(AuthenticationModeEnum.JWT)) {
-            login = JwtPubSub.getLoginByToken(token);
-            if(login==null) {
-                return JwtStatusEnum.NotAuthenticated;
-            }
-        }
-
-        if (JwtAuthMgt.AUTH_MODE.equals(AuthenticationModeEnum.BASIC)) {
-          String[] login_password = BasicAuthMgt.getLoginPassword(request);
-          login = JwtPubSub.getLoginByUsername(login_password[0]);
-        }
-
-        if(login == null){
-            return JwtStatusEnum.NotAuthorized;
-        }
-
-        IGetter getter = AppConfig.getDbGetter(endpoint, method);
-        if(getter==null){
-            return JwtStatusEnum.NoSettings;
-        }
-
-        //public access
-        if((login.getRoles()==null || login.getRoles().size()==0) && (getter.getRoles()==null || getter.getRoles().size()==0)) {
-            return JwtStatusEnum.Authorized;
-        }
-
-        if(login.getRoles()==null){
-            return JwtStatusEnum.NotAuthorized;
-        }
-        if(getter.getRoles()==null){
-            return JwtStatusEnum.NoSettings;
-        }
-        Set<String> intersection = Sets.intersection(login.getRoles(), getter.getRoles());
-        if(intersection.size() > 0){
-            return JwtStatusEnum.Authorized;
-        }
-        return JwtStatusEnum.NotAuthorized;
-    }
 
 
     // #########################

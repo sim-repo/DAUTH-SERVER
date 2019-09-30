@@ -1,11 +1,10 @@
-package hello.security.pubsub;
+package hello.pubsub;
 
 import hello.config.AppConfig;
-import hello.model.getter.DbGetter;
-import hello.security.JwtAuthMgt;
-import hello.security.enums.AuthenticationModeEnum;
-import hello.security.model.Login;
+import hello.mgt.JwtAuthMgt;
+import hello.enums.AuthenticationModeEnum;
 import hello.security.model.ProtoLogin;
+import hello.security.model.Login;
 import org.redisson.api.RMap;
 import org.redisson.api.RTopic;
 import org.redisson.api.RedissonClient;
@@ -29,10 +28,7 @@ public class JwtPubSub {
 
         //roles:
         sub_addLoginRoles();
-        sub_addGetterRoles();
-
         sub_removeLoginRoles();
-        sub_removeGetterRoles();
 
         //authorization mode
         sub_setAuthorizationMode();
@@ -67,11 +63,6 @@ public class JwtPubSub {
         return loginById.get(id);
     }
 
-    public static Login getLoginByToken(String token){
-        return loginByToken.get(token);
-    }
-
-
     // add
     private static void sub_addLogin() {
         RTopic topic = getClient().getTopic("admin.add.protoLogin");
@@ -105,9 +96,8 @@ public class JwtPubSub {
         Login login = JwtAuthMgt.addNewLogin(protoLogin);
         loginById.put(login.getId(), login);
         loginByUsername.put(login.getName(), login);
-        if (JwtAuthMgt.AUTH_MODE.equals(AuthenticationModeEnum.JWT)) {
-            safetyAddToken(login);
-        }
+        safetyAddToken(login);
+        JwtAuthMgt.syncLogin(login);
     }
 
 
@@ -132,9 +122,7 @@ public class JwtPubSub {
                 System.out.println("admin.sync.login: "+login);
                 loginById.put(login.getId(), login);
                 loginByUsername.put(login.getName(), login);
-                if (JwtAuthMgt.AUTH_MODE.equals(AuthenticationModeEnum.JWT)) {
-                    safetyAddToken(login);
-                }
+                safetyAddToken(login);
                 showStatus();
             }
         });
@@ -372,7 +360,7 @@ public class JwtPubSub {
                 System.out.println("admin.change.default_expire_in_days: "+expireInDays);
                 if(expireInDays <= 0) {
                     //TODO throw err
-                    System.out.println("admin.change.default_expire_in_days: xpireInDays <= 0");
+                    System.out.println("admin.change.default_expire_in_days: expireInDays <= 0");
                     return;
                 }
                 JwtAuthMgt.EXPIRE = expireInDays;
@@ -395,7 +383,7 @@ public class JwtPubSub {
                     if (!addLoginRoles(element.getKey(), element.getValue())) {
                         continue;
                     }
-                    System.out.println("done!!! admin.add.login.roles: "+ element.getValue());
+                    System.out.println("admin.add.login.roles: ["+element.getKey()+"]:["+ element.getValue()+"]");
                 }
             }
         });
@@ -408,8 +396,9 @@ public class JwtPubSub {
         System.out.println("================");
         RMap<Integer, String> map = getClient().getMap("addLoginRoles");
         for(Map.Entry<Integer,String> element : map.entrySet()){
-            System.out.println(element.getKey()+":"+element.getValue());
-            addLoginRoles(element.getKey(), element.getValue());
+            if(addLoginRoles(element.getKey(), element.getValue())){
+                System.out.println("admin.add.login.roles: ["+element.getKey()+"]:["+ element.getValue()+"]");
+            }
         }
     }
 
@@ -417,7 +406,7 @@ public class JwtPubSub {
         Login login = getLoginById(loginId);
         if(login == null) {
             //TODO throw err
-            System.out.println("admin.add.login.roles: Login is null");
+            System.out.println("admin.add.login.roles: Login ["+loginId+"] is null");
             return false;
         }
         login.setRole(role);
@@ -425,44 +414,6 @@ public class JwtPubSub {
     }
 
 
-
-
-    private static void sub_addGetterRoles() {
-        RTopic topic = getClient().getTopic("admin.add.getter.roles");
-        topic.addListener(HashMap.class, new MessageListener<HashMap<Integer, String>>() {
-            @Override
-            public void onMessage(CharSequence charSequence, HashMap<Integer, String> roleByGetterId) {
-                System.out.println("admin.add.getter.roles: "+roleByGetterId);
-                for (Map.Entry<Integer, String> element : roleByGetterId.entrySet()) {
-                    addGetterRoles(element.getKey(), element.getValue());
-                    System.out.println("done!!! admin.add.getter.roles: "+element.getValue());
-                }
-            }
-        });
-    }
-
-    public static void preload_addGettersRoles() {
-        System.out.println("");
-        System.out.println("=================");
-        System.out.println("add getter roles:");
-        System.out.println("=================");
-        RMap<Integer, String> map = getClient().getMap("addGetterRoles");
-        for(Map.Entry<Integer,String> element : map.entrySet()){
-            System.out.println(element.getKey()+":"+element.getValue());
-            addGetterRoles(element.getKey(), element.getValue());
-        }
-    }
-
-    private static Boolean addGetterRoles(Integer getterId, String role){
-        DbGetter getter = AppConfig.getDbGetterById(getterId);
-        if(getter == null) {
-            //TODO throw err
-            System.out.println("admin.add.getter.roles: Login is null");
-            return false;
-        }
-        getter.setRole(role);
-        return true;
-    }
 
     //remove
     private static void sub_removeLoginRoles() {
@@ -486,33 +437,17 @@ public class JwtPubSub {
         });
     }
 
-    private static void sub_removeGetterRoles() {
-        RTopic topic = getClient().getTopic("admin.remove.getter.roles");
-        topic.addListener(HashMap.class, new MessageListener<HashMap<Integer, String>>() {
-            @Override
-            public void onMessage(CharSequence charSequence, HashMap<Integer, String> roleByGetterId) {
-                System.out.println("admin.REMOVE.getter.roles: "+roleByGetterId);
-                for (Map.Entry<Integer, String> entry : roleByGetterId.entrySet()) {
-                    DbGetter getter = AppConfig.getDbGetterById(entry.getKey());
-                    if(getter == null || getter.getRoles() == null) {
-                        //TODO throw err
-                        //TODO throw err
-                        System.out.println("admin.REMOVE.getter.roles: Login or Roles is null");
-                        continue;
-                    }
-                    getter.getRoles().remove(entry.getValue());
-                    System.out.println("done!!! admin.REMOVE.getter.roles: "+getter.getRoles());
-                }
-            }
-        });
-    }
 
 
 
     private static void showStatus() {
+        System.out.println("");
+        System.out.println("");
+        System.out.println("=================");
         System.out.println("loginByUsername:"+loginByUsername.size());
         System.out.println("loginById:"+loginById.size());
         System.out.println("loginByToken:"+loginByToken.size());
         System.out.println("activeTokens:"+activeTokens.size());
+        System.out.println("=================");
     }
 }

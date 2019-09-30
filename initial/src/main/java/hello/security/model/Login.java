@@ -20,6 +20,7 @@ public class Login implements Serializable {
     private String name;
     private Date expire;
     private String encryptedPassword;
+    private String encodedPassword; //basic auth
     private String salt;
     private String token;
     private String oldToken;
@@ -86,21 +87,23 @@ public class Login implements Serializable {
     public void setRole(String role){
         roles.add(role);
     }
-
     public String getToken() {
         return token;
     }
-
     public void setToken(String token) {
         this.token = token;
     }
-
     public String getOldToken() {
         return oldToken;
     }
-
     public void setOldToken(String oldToken) {
         this.oldToken = oldToken;
+    }
+    public String getEncodedPassword() {
+        return encodedPassword;
+    }
+    public void setEncodedPassword(String encodedPassword) {
+        this.encodedPassword = encodedPassword;
     }
 
     @Override
